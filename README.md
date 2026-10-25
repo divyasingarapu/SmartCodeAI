@@ -1,5 +1,9 @@
 # SmartCode AI — Intelligent Code Review Platform
 
+
+![SmartCode AI Tests](https://github.com/divyasingarapu/SmartCodeAI/actions/workflows/python-tests.yml/badge.svg)
+
+
 SmartCode AI is a Python-based code review platform designed to help developers identify potential code issues, inspect common security risks, review public GitHub repositories, and generate and run basic automated tests.
 
 The project combines static code analysis, security checks, GitHub integration, and test-generation workflows in a web interface built with Flask.
