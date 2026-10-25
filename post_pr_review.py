@@ -5,7 +5,7 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
-
+from urllib.parse import urlsplit
 
 COMMENT_MARKER = "## SmartCode AI Review"
 API_VERSION = "2022-11-28"
@@ -19,6 +19,15 @@ def github_request(url, token, method="GET", payload=None):
         "Authorization": f"Bearer {token}",
         "X-GitHub-Api-Version": API_VERSION,
     }
+    parsed_url = urlsplit(url)
+
+    if (
+        parsed_url.scheme != "https"
+        or parsed_url.hostname != "api.github.com"
+    ):
+        raise ValueError(
+            "Only HTTPS requests to api.github.com are allowed."
+        )
 
     data = None
     if payload is not None:
