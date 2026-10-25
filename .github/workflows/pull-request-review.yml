@@ -1,0 +1,57 @@
+
+name: SmartCode AI Pull Request Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  review:
+    name: Review changed Python files
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Run SmartCode AI review
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+        run: python pr_review.py
+
+      - name: Publish review summary
+        if: always()
+        run: |
+          if [ -f pr-review-report.md ]; then
+            cat pr-review-report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "The review report was not generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload review report
+        if: always() && hashFiles('pr-review-report.md') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: smartcode-ai-review-report
+          path: pr-review-report.md
+          if-no-files-found: warn
