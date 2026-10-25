@@ -1,0 +1,252 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartCode AI - Code Review</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <main class="container">
+        <h1>SmartCode AI</h1>
+
+        <p class="subtitle">
+            Code Review, Bug Detection, Security Checks and Test Generation
+        </p>
+
+        <!-- GitHub repository integration -->
+        <section class="results">
+            <h2>Review a GitHub Repository</h2>
+            <p>
+                Browse Python files from a public GitHub repository
+                and prepare them for code review.
+            </p>
+            <a href="{{ url_for('github_repository') }}">
+                Browse GitHub Repository
+            </a>
+        </section>
+
+        <!-- Manual code review and test generation -->
+        <form method="POST">
+            <label for="language">Programming language</label>
+
+            <select name="language" id="language">
+                <option value="python"
+                    {% if language == "python" %}selected{% endif %}>
+                    Python
+                </option>
+
+                <option value="java"
+                    {% if language == "java" %}selected{% endif %}>
+                    Java
+                </option>
+            </select>
+
+            <label for="code">Your code</label>
+
+            <textarea name="code"
+                      id="code"
+                      placeholder="Paste your code here..."
+                      required>{{ code }}</textarea>
+
+            <label for="module_name">
+                Python module name (for generated tests)
+            </label>
+
+            <input
+                type="text"
+                name="module_name"
+                id="module_name"
+                value="{{ module_name }}"
+                placeholder="Example: calculator or src.calculator"
+            >
+
+            <div class="action-buttons">
+                <button type="submit"
+                        name="action"
+                        value="review">
+                    Review Code
+                </button>
+
+                <button type="submit"
+                        name="action"
+                        value="generate_tests">
+                    Generate Tests
+                </button>
+            </div>
+        </form>
+
+        {% if error_message %}
+        <section class="results">
+            <h2>Unable to Complete Request</h2>
+            <p>{{ error_message }}</p>
+        </section>
+        {% endif %}
+
+        {% if action == "review" and issues %}
+        <section class="results">
+            <h2>Code Review Results</h2>
+
+            {% for issue in issues %}
+            <article class="issue-card severity-{{ issue.severity }}">
+                <div class="issue-heading">
+                    <strong>{{ issue.type }}</strong>
+
+                    <span class="severity-label">
+                        {{ issue.severity | upper }}
+                    </span>
+                </div>
+
+                {% if issue.line %}
+                <p class="line-number">Line {{ issue.line }}</p>
+                {% endif %}
+
+                <p>{{ issue.message }}</p>
+
+                <p>
+                    <strong>Suggested improvement:</strong>
+                    {{ issue.suggestion }}
+                </p>
+            </article>
+            {% endfor %}
+        </section>
+        {% elif action == "review" and request.method == "POST" %}
+        <section class="results">
+            <h2>Code Review Results</h2>
+            <p>No issues were reported by the current checks.</p>
+        </section>
+        {% endif %}
+
+        {% if test_result is not none %}
+        <section class="results">
+            <h2>Generated Test Results</h2>
+
+            <p>
+                <strong>Tests generated:</strong>
+                {{ test_result.generated_count }}
+            </p>
+
+            {% if test_result.functions %}
+            <p>
+                <strong>Functions covered:</strong>
+                {{ test_result.functions | join(", ") }}
+            </p>
+            {% endif %}
+
+            {% if test_result.test_code %}
+            <h3>Suggested pytest code</h3>
+
+            <pre class="generated-code"><code>{{ test_result.test_code }}</code></pre>
+
+            <div class="action-buttons">
+                <button
+                    type="button"
+                    onclick="copyGeneratedTests()">
+                    Copy Generated Tests
+                </button>
+
+                <form method="POST"
+                      action="{{ url_for('download_tests') }}">
+                    <textarea name="test_code" hidden>{{ test_result.test_code }}</textarea>
+
+                    <button type="submit">
+                        Download Tests (.py)
+                    </button>
+                </form>
+
+                <form method="POST"
+                      action="{{ url_for('run_tests') }}">
+                    <input type="hidden"
+                           name="source_code"
+                           value="{{ code }}">
+
+                    <input type="hidden"
+                           name="module_name"
+                           value="{{ module_name }}">
+
+                    <textarea name="test_code" hidden>{{ test_result.test_code }}</textarea>
+
+                    <button type="submit">
+                        Run Generated Tests
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+
+            {% if test_result.warnings %}
+            <h3>Warnings</h3>
+
+            <ul>
+                {% for warning in test_result.warnings %}
+                <li>{{ warning }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            {% if test_result.generated_count == 0
+                  and not test_result.warnings %}
+            <p>
+                No tests could be generated for the supplied code.
+            </p>
+            {% endif %}
+        </section>
+        {% endif %}
+
+        {% if run_result is not none %}
+        <section class="results">
+            <h2>Test Execution Results</h2>
+
+            <p>
+                <strong>Status:</strong>
+                {{ "PASSED" if run_result.success else "FAILED" }}
+            </p>
+
+            <p><strong>Total:</strong> {{ run_result.total }}</p>
+            <p><strong>Passed:</strong> {{ run_result.passed }}</p>
+            <p><strong>Failed:</strong> {{ run_result.failed }}</p>
+            <p><strong>Skipped:</strong> {{ run_result.skipped }}</p>
+
+            {% if run_result.errors %}
+            <h3>Errors</h3>
+            <ul>
+                {% for error in run_result.errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            {% if run_result.output %}
+            <h3>Pytest Output</h3>
+            <pre class="generated-code"><code>{{ run_result.output }}</code></pre>
+            {% endif %}
+        </section>
+        {% endif %}
+    </main>
+
+    <script>
+        function copyGeneratedTests() {
+            const codeElement = document.querySelector(
+                ".generated-code code"
+            );
+
+            if (!codeElement) {
+                return;
+            }
+
+            navigator.clipboard.writeText(codeElement.innerText)
+                .then(() => {
+                    alert("Generated tests copied!");
+                })
+                .catch(() => {
+                    alert(
+                        "Copy failed. Please select and copy the code manually."
+                    );
+                });
+        }
+    </script>
+</body>
+</html>

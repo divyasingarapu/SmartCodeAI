@@ -1,0 +1,528 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>GitHub Repository | SmartCode AI</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+<main class="container">
+
+    <h1>SmartCode AI — GitHub Review</h1>
+
+    <p>
+        Browse public GitHub repositories and analyze their Python files.
+    </p>
+
+    <p>
+        <a href="{{ url_for('home') }}">Back to Code Review</a>
+    </p>
+
+    <!-- Repository Details -->
+    <section class="panel">
+        <h2>Repository Details</h2>
+
+        <form method="POST"
+              action="{{ url_for('github_repository') }}">
+
+            <label for="owner">Repository owner</label>
+
+            <input
+                id="owner"
+                name="owner"
+                type="text"
+                value="{{ owner or '' }}"
+                placeholder="octocat"
+                maxlength="100"
+                required
+            >
+
+            <label for="repo">Repository name</label>
+
+            <input
+                id="repo"
+                name="repo"
+                type="text"
+                value="{{ repo or '' }}"
+                placeholder="Hello-World"
+                maxlength="100"
+                required
+            >
+
+            <button type="submit">Browse Repository</button>
+        </form>
+    </section>
+
+    <!-- Error Message -->
+    {% if error_message %}
+    <section class="alert error" role="alert">
+        <strong>Error:</strong>
+        {{ error_message }}
+    </section>
+    {% endif %}
+
+
+    <!-- Repository Files -->
+    {% if files %}
+    <section class="panel">
+
+        <h2>Python Files</h2>
+
+        <p>
+            Repository:
+            <strong>{{ owner }}/{{ repo }}</strong>
+        </p>
+
+        {% if repository and repository.branch %}
+        <p>
+            Default branch:
+            <strong>{{ repository.branch }}</strong>
+        </p>
+        {% endif %}
+
+        <p>Total eligible files: {{ files|length }}</p>
+
+        <!-- Batch Review Form -->
+        <form
+            id="batch-review-form"
+            method="POST"
+            action="{{ url_for('review_github_batch') }}"
+        >
+            <input
+                type="hidden"
+                name="owner"
+                value="{{ owner }}"
+            >
+
+            <input
+                type="hidden"
+                name="repo"
+                value="{{ repo }}"
+            >
+
+            <button type="submit">
+                Review Selected Files
+            </button>
+        </form>
+
+        <p class="hint">
+            Select up to 10 Python files below, then click
+            Review Selected Files.
+        </p>
+
+        <!-- Python File List -->
+        <ul class="file-list">
+
+            {% for file in files %}
+            <li>
+
+                <!-- Checkbox for Batch Review -->
+                <label class="file-select">
+                    <input
+                        type="checkbox"
+                        name="paths"
+                        value="{{ file.path }}"
+                        form="batch-review-form"
+                    >
+                    Select
+                </label>
+
+                <!-- File Information -->
+                <div class="file-info">
+                    <code>{{ file.path }}</code>
+
+                    <span class="hint">
+                        {{ file.size }} bytes
+                    </span>
+                </div>
+
+                <!-- Individual File Review Form -->
+                <form
+                    method="POST"
+                    action="{{ url_for('review_github_file') }}"
+                >
+                    <input
+                        type="hidden"
+                        name="owner"
+                        value="{{ owner }}"
+                    >
+
+                    <input
+                        type="hidden"
+                        name="repo"
+                        value="{{ repo }}"
+                    >
+
+                    <input
+                        type="hidden"
+                        name="path"
+                        value="{{ file.path }}"
+                    >
+
+                    <button type="submit" class="secondary">
+                        Review This File
+                    </button>
+                </form>
+
+            </li>
+            {% endfor %}
+
+        </ul>
+    </section>
+
+    {% elif request.method == "POST"
+          and not error_message
+          and not code
+          and not batch_results %}
+
+    <section class="panel">
+        <h2>No Python Files Found</h2>
+
+        <p>
+            No eligible Python files were found in this repository.
+        </p>
+    </section>
+    {% endif %}
+
+
+    <!-- Repository-Wide Batch Review Report -->
+    {% if batch_results %}
+    <section class="panel">
+
+        <h2>Repository-Wide Review Report</h2>
+
+        <p>
+            <strong>Repository:</strong>
+            {{ owner }}/{{ repo }}
+        </p>
+
+        <!-- Batch Summary -->
+        <div class="review-summary">
+
+            <div class="summary-card">
+                <span>Files Selected</span>
+                <strong>{{ batch_summary.selected }}</strong>
+            </div>
+
+            <div class="summary-card">
+                <span>Files Reviewed</span>
+                <strong>{{ batch_summary.reviewed }}</strong>
+            </div>
+
+            <div class="summary-card">
+                <span>Failed Files</span>
+                <strong>{{ batch_summary.failed }}</strong>
+            </div>
+
+            <div class="summary-card">
+                <span>Total Findings</span>
+                <strong>{{ batch_summary.total_issues }}</strong>
+            </div>
+
+            <div class="summary-card">
+                <span>Critical</span>
+                <strong>
+                    {{ batch_summary.severity_counts.critical }}
+                </strong>
+            </div>
+
+            <div class="summary-card">
+                <span>High</span>
+                <strong>
+                    {{ batch_summary.severity_counts.high }}
+                </strong>
+            </div>
+
+            <div class="summary-card">
+                <span>Medium</span>
+                <strong>
+                    {{ batch_summary.severity_counts.medium }}
+                </strong>
+            </div>
+
+            <div class="summary-card">
+                <span>Low</span>
+                <strong>
+                    {{ batch_summary.severity_counts.low }}
+                </strong>
+            </div>
+
+        </div>
+
+        <!-- File-by-File Results -->
+        <h3>File-by-File Findings</h3>
+
+        {% for result in batch_results %}
+        <article class="issue-card">
+
+            <h3>
+                <code>{{ result.path }}</code>
+            </h3>
+
+            {% if result.error %}
+
+                <div class="alert error" role="alert">
+                    <strong>Review failed:</strong>
+                    {{ result.error }}
+                </div>
+
+            {% else %}
+
+                <p>
+                    Findings reported:
+                    <strong>{{ result.issue_count }}</strong>
+                </p>
+
+                {% if result.issues %}
+
+                    {% for issue in result.issues %}
+                    {% set severity =
+                        issue.severity|default('Low')|lower %}
+
+                    <div class="issue-card">
+
+                        <div class="issue-heading">
+
+                            <strong>
+                                {{ issue.type|default('Code issue') }}
+                            </strong>
+
+                            <span class="severity severity-{{ severity }}">
+                                {{ severity|upper }}
+                            </span>
+
+                        </div>
+
+                        {% if issue.line %}
+                        <p class="hint">
+                            Line {{ issue.line }}
+                        </p>
+                        {% endif %}
+
+                        <p>
+                            {{ issue.message|default(
+                                'No description provided.'
+                            ) }}
+                        </p>
+
+                        {% if issue.suggestion %}
+                        <p>
+                            <strong>Suggested improvement:</strong>
+                            {{ issue.suggestion }}
+                        </p>
+                        {% endif %}
+
+                    </div>
+                    {% endfor %}
+
+                {% else %}
+
+                    <p>
+                        No issues were reported by the current
+                        analyzer checks.
+                    </p>
+
+                {% endif %}
+
+            {% endif %}
+
+        </article>
+        {% endfor %}
+
+        <p>
+            <a href="{{ url_for('github_repository') }}">
+                Back to repository browser
+            </a>
+        </p>
+
+    </section>
+    {% endif %}
+
+
+    <!-- Individual Code Review Dashboard -->
+    {% if code %}
+    <section class="panel">
+
+        <h2>Code Review Dashboard</h2>
+
+        <p>
+            <strong>Repository:</strong>
+            {{ owner }}/{{ repo }}
+        </p>
+
+        <p>
+            <strong>Selected file:</strong>
+            <code>{{ selected_path }}</code>
+        </p>
+
+        <!-- Calculate Severity Counts -->
+        {% set counts = namespace(
+            critical=0,
+            high=0,
+            medium=0,
+            low=0,
+            other=0,
+            total=0
+        ) %}
+
+        {% for issue in issues %}
+            {% set counts.total = counts.total + 1 %}
+            {% set severity = issue.severity|default('Low')|lower %}
+
+            {% if severity == 'critical' %}
+                {% set counts.critical = counts.critical + 1 %}
+            {% elif severity == 'high' %}
+                {% set counts.high = counts.high + 1 %}
+            {% elif severity == 'medium' %}
+                {% set counts.medium = counts.medium + 1 %}
+            {% elif severity == 'low' %}
+                {% set counts.low = counts.low + 1 %}
+            {% else %}
+                {% set counts.other = counts.other + 1 %}
+            {% endif %}
+        {% endfor %}
+
+        <!-- Review Summary -->
+        <h3>Review Summary</h3>
+
+        <div class="review-summary">
+
+            <div class="summary-card">
+                <span>Total Issues</span>
+                <strong>{{ counts.total }}</strong>
+            </div>
+
+            <div class="summary-card">
+                <span>Critical</span>
+                <strong>{{ counts.critical }}</strong>
+            </div>
+
+            <div class="summary-card">
+                <span>High</span>
+                <strong>{{ counts.high }}</strong>
+            </div>
+
+            <div class="summary-card">
+                <span>Medium</span>
+                <strong>{{ counts.medium }}</strong>
+            </div>
+
+            <div class="summary-card">
+                <span>Low</span>
+                <strong>{{ counts.low }}</strong>
+            </div>
+
+            {% if counts.other > 0 %}
+            <div class="summary-card">
+                <span>Other</span>
+                <strong>{{ counts.other }}</strong>
+            </div>
+            {% endif %}
+
+        </div>
+
+        <!-- Review Status -->
+        {% if counts.critical > 0 or counts.high > 0 %}
+
+        <div class="alert error" role="status">
+            <strong>Priority review recommended.</strong>
+            Examine critical and high-severity findings first.
+        </div>
+
+        {% elif counts.total > 0 %}
+
+        <div class="alert" role="status">
+            Findings are available below. Review each suggestion.
+        </div>
+
+        {% else %}
+
+        <div class="alert" role="status">
+            No issues were reported by the current analyzer checks.
+            This does not guarantee that the code is bug-free or secure.
+        </div>
+
+        {% endif %}
+
+        <!-- Source Code -->
+        <h3>Source Code</h3>
+
+        <pre class="code-output"><code>{{ code }}</code></pre>
+
+        <!-- Individual Findings -->
+        <h3>Analysis Findings</h3>
+
+        {% if issues %}
+
+            {% for issue in issues %}
+            {% set severity = issue.severity|default('Low')|lower %}
+
+            <article class="issue-card">
+
+                <div class="issue-heading">
+
+                    <strong>
+                        {{ issue.type|default('Code issue') }}
+                    </strong>
+
+                    <span class="severity severity-{{ severity }}">
+                        {{ severity|upper }}
+                    </span>
+
+                </div>
+
+                {% if issue.line %}
+                <p class="hint">
+                    Line {{ issue.line }}
+                </p>
+                {% endif %}
+
+                <p>
+                    {{ issue.message|default('No description provided.') }}
+                </p>
+
+                {% if issue.suggestion %}
+                <p>
+                    <strong>Suggested improvement:</strong>
+                    {{ issue.suggestion }}
+                </p>
+                {% endif %}
+
+            </article>
+            {% endfor %}
+
+        {% else %}
+
+            <p>
+                No findings were reported by the current analyzer checks.
+            </p>
+
+        {% endif %}
+
+        <p>
+            <a href="{{ url_for('github_repository') }}">
+                Back to repository browser
+            </a>
+        </p>
+
+    </section>
+    {% endif %}
+
+
+    <!-- Footer -->
+    <footer>
+        <p>
+            SmartCode AI — GitHub source is analyzed as text,
+            not executed by this page.
+        </p>
+    </footer>
+
+</main>
+</body>
+</html>
