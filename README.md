@@ -1,40 +1,38 @@
 # SmartCode AI — Intelligent Code Review Platform
 
-
 ![SmartCode AI Tests](https://github.com/divyasingarapu/SmartCodeAI/actions/workflows/python-tests.yml/badge.svg)
 
+SmartCode AI is a Python-based code review platform that helps developers identify potential code-quality issues, inspect common security risks, review public GitHub repositories, and generate and run basic automated tests.
 
-SmartCode AI is a Python-based code review platform designed to help developers identify potential code issues, inspect common security risks, review public GitHub repositories, and generate and run basic automated tests.
-
-The project combines static code analysis, security checks, GitHub integration, and test-generation workflows in a web interface built with Flask.
+It combines static code analysis, heuristic security scanning, GitHub integration, test-generation workflows, and pull-request review automation in a Flask web application.
 
 ## Features
 
 ### 1. Code Review
 - Submit source code for analysis.
 - Review supported Python and Java code.
-- View reported issues, severity levels, line numbers, and suggested improvements.
+- View findings, severity levels, line numbers, and improvement suggestions.
 
 ### 2. Security Analysis
 - Scan source code for selected security-risk patterns.
-- Display findings alongside code-review results.
-- Provide suggestions to help developers investigate potential vulnerabilities.
+- Display potential security findings alongside code-review results.
+- Provide suggestions for investigating possible vulnerabilities.
 
-*Note: Static security checks are heuristic-based and cannot guarantee that code is secure.*
+*Static security checks are heuristic-based. They may produce false positives or miss vulnerabilities and cannot guarantee that code is secure.*
 
 ### 3. GitHub Repository Review
-- Browse eligible Python files in public GitHub repositories.
+- Retrieve eligible Python files from public GitHub repositories.
 - Review individual source files.
-- Inspect file-level findings and suggested improvements.
+- Inspect findings and suggestions for the selected files.
 
 ### 4. Batch Code Review
-- Select multiple Python files for analysis.
+- Analyze multiple Python files.
 - Review findings across selected files.
 - View summary statistics for reviewed files, failures, and severity levels.
 
 ### 5. Automated Test Generation
 - Generate basic pytest test code for supported Python functions.
-- View generated tests and the functions covered.
+- Review generated tests and the functions they cover.
 - Copy or download generated test files.
 
 ### 6. Test Execution
@@ -42,145 +40,195 @@ The project combines static code analysis, security checks, GitHub integration, 
 - View passed, failed, and skipped test counts.
 - Inspect available error messages and test output.
 
-**Security note:** The current test runner is a local prototype, not a secure sandbox. Do not run untrusted code or expose the test execution service publicly without implementing proper isolation and resource limits.
+**Security note:** The current test runner is a local prototype, not a secure sandbox. Do not execute untrusted code or expose test execution publicly without appropriate isolation and resource limits.
+
+### 7. Automated Pull-Request Review
+- Identify changed Python files in a pull request.
+- Analyze changes for code-quality and security findings.
+- Separate findings on changed lines from other findings in reviewed files.
+- Generate a Markdown review report.
+
+The pull-request workflow uses Git and GitHub Actions. Review capabilities depend on the configured workflow and repository permissions.
 
 ## Technology Stack
 
-- **Backend:** Python, Flask
+- **Language:** Python
+- **Web framework:** Flask
 - **Frontend:** HTML, CSS, Jinja2 templates
-- **Code Analysis:** Custom Python analysis modules
-- **Security Checks:** Custom static security scanner
-- **GitHub Integration:** GitHub repository and source-file retrieval
+- **Code analysis:** Custom analysis modules and supported static-analysis tools
+- **Security scanning:** Custom static security scanner
+- **GitHub integration:** GitHub repository retrieval and pull-request review workflow
 - **Testing:** pytest
-- **Version Control:** Git and GitHub
+- **Code quality:** Ruff
+- **Security checks:** Bandit and custom scanning rules
+- **Version control and CI:** Git, GitHub, GitHub Actions
 
 ## Project Structure
 
 ```text
 SmartCodeAI/
+├── .github/
+│   └── workflows/
+├── docs/
+├── screenshots/
+├── static/
+├── templates/
+├── tests/
 ├── app.py
 ├── analyzer.py
 ├── security_scanner.py
 ├── finding_deduplicator.py
+├── changed_line_filter.py
 ├── github_service.py
+├── pr_review.py
+├── post_pr_review.py
+├── pr_review_demo.py
 ├── test_generator.py
 ├── test_runner.py
-├── templates/
-│   ├── index.html
-│   └── github.html
-├── static/
-│   └── style.css
-├── tests/
-│   ├── test_app.py
-│   └── test_finding_deduplicator.py
 ├── requirements.txt
+├── requirements-dev.txt
 └── README.md
 ```
 
-The structure above shows the main application files. Additional test files or configuration files may be present in your local project.
+This is a simplified view of the main project files; additional test and utility modules are included in the repository.
 
 ## Getting Started
 
 ### Prerequisites
-
-- Python 3.11 or later recommended
+- Python 3.11 or later
 - pip
-- Git (optional, for cloning the repository)
+- Git
 
 ### 1. Clone the repository
 
-Replace the placeholder with your actual GitHub repository URL.
-
 ```bash
-git clone <YOUR_GITHUB_REPOSITORY_URL>
+git clone https://github.com/divyasingarapu/SmartCodeAI.git
 cd SmartCodeAI
 ```
 
-Alternatively, open your existing project folder in VS Code.
+### 2. Create and activate a virtual environment
 
-### 2. Create a virtual environment
+**Windows PowerShell:**
 
-**Windows:**
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+```
+
+**macOS or Linux:**
 
 ```bash
 python -m venv venv
-venv\Scripts\activate
+source venv/bin/activate
 ```
 
 ### 3. Install dependencies
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
-### 4. Start the application
+For development and testing tools, install:
+
+```bash
+python -m pip install -r requirements-dev.txt
+```
+
+### 4. Run the application
 
 ```bash
 python app.py
 ```
 
-Open the local address displayed in the terminal, typically:
+Open the local address printed in the terminal. For a typical local Flask setup, this is:
 
 ```text
 http://127.0.0.1:5000
 ```
 
-## Running Automated Tests
+Use the application locally unless you have configured appropriate production security controls.
 
-Run the project test suite from the root directory:
+## Running Tests and Quality Checks
+
+Run these commands from the project root.
+
+**Automated tests:**
 
 ```bash
 python -m pytest -q
 ```
 
-The test suite covers code-analysis behavior and Flask routes. Run it against your current codebase to verify the latest changes.
+**Code quality:**
+
+```bash
+python -m ruff check .
+```
+
+**Security scan:**
+
+```bash
+python -m bandit -r .
+```
+
+Bandit results require manual review. Some warnings may be expected for reviewed subprocess or other security-sensitive operations; do not suppress findings without understanding the underlying risk.
+
+## Pull-Request Review Workflow
+
+The repository includes GitHub Actions workflow configuration and pull-request review scripts.
+
+At a high level, the review process:
+
+1. Identifies changed Python files.
+2. Obtains the diff for the pull request.
+3. Runs code-quality and security checks on eligible files.
+4. Filters findings by changed line numbers.
+5. Produces a Markdown review report.
+
+Workflow behavior depends on the repository's GitHub Actions configuration, permissions, and available dependencies.
 
 ## Security Considerations
 
+- Treat static-analysis results as guidance, not proof of security.
 - Analyze untrusted source code as text whenever possible.
-- Static analysis can miss vulnerabilities and may produce false positives.
-- Test execution must be isolated before accepting untrusted code.
+- Do not execute untrusted generated tests without proper isolation.
 - Never commit credentials, access tokens, or private configuration files.
-- Keep Flask debug mode restricted to local development.
-- Use appropriate timeouts, memory limits, and operating-system isolation before deploying execution features.
+- Keep Flask debug mode disabled outside local development.
+- Add operating-system or container isolation, timeouts, and resource limits before deploying code execution features publicly.
 
 ## Current Limitations
 
-- Static checks do not replace a complete security audit.
-- Test generation supports only the patterns implemented in the current generator.
-- GitHub review is limited to eligible files and the repository access supported by the application.
-- Secure, production-grade execution isolation is not yet implemented.
+- Static checks may miss vulnerabilities or report false positives.
+- Test generation supports only the function patterns implemented in the generator.
+- GitHub review is limited to supported files and configured repository access.
+- Production-grade sandboxing for test execution is not implemented.
+- Automated review findings still require human verification.
 
 ## Future Improvements
 
-- Add stronger language-aware parsing and analysis.
-- Improve security rules and reduce false positives.
-- Expand test generation to handle more function patterns and edge cases.
-- Add isolated execution using containers or another suitable sandbox.
-- Add code-review history, filtering, and exportable reports.
-- Introduce continuous integration to run tests automatically on each push.
-
-## Project Status
-
-SmartCode AI is an educational and portfolio project demonstrating Flask development, static analysis, security scanning, GitHub integration, automated test generation, and software testing.
-
+- Expand language-aware parsing and analysis rules.
+- Improve security coverage and reduce false positives.
+- Generate tests for a wider range of function patterns.
+- Add isolated test execution using containers or another suitable sandbox.
+- Add review history, filtering, and exportable reports.
+- Expand CI coverage and integration testing.
 
 ## Screenshots
 
 ### Home Dashboard
+
 ![SmartCode AI Home Dashboard](screenshots/HomeDashboard.png)
 
 ### Code Review Dashboard
+
 ![SmartCode AI Code Review](screenshots/CodeReview.png)
 
 ### GitHub Repository Review
-![SmartCode AI GitHub Review](screenshots/github-repository-review.png)
 
+![SmartCode AI GitHub Review](screenshots/github-repository-review.png)
 
 ## Author
 
 **Singarapu Divya**
 
 B.Tech — Computer Science and Engineering
-
 Lendi Institute of Engineering and Technology
