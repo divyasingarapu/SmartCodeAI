@@ -17,7 +17,6 @@ from security_scanner import scan_security
 from test_generator import generate_tests
 from test_runner import run_generated_tests
 
-
 app = Flask(__name__)
 
 # Limit the size of incoming requests to 1 MB.
@@ -264,7 +263,7 @@ def review_github_batch():
                             }
                         )
 
-                    except Exception as error:
+                    except Exception:
                         app.logger.exception(
                             "Failed to review GitHub file: %s", path
                         )
@@ -418,4 +417,4 @@ def download_tests():
 if __name__ == "__main__":
     # Local development only. The test runner needs proper isolation
     # before this application should be exposed to other users.
-    app.run(debug=True)
+    app.run(debug=False)
