@@ -5,7 +5,6 @@ import ast
 import re
 from collections import OrderedDict
 
-
 SEVERITY_RANK = {
     "critical": 5,
     "high": 4,
@@ -146,13 +145,7 @@ def _python_shell_call_sites(source_code):
             and isinstance(func.value, ast.Name)
             and func.value.id == "subprocess"
             and func.attr in subprocess_functions
-        ):
-            call_sites.append(
-                (node.lineno, getattr(node, "end_lineno", node.lineno))
-            )
-
-        # Directly imported function, e.g. run(..., shell=True).
-        elif (
+        ) or (
             isinstance(func, ast.Name)
             and func.id in subprocess_functions
         ):

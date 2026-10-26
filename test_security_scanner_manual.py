@@ -1,7 +1,6 @@
 
 from security_scanner import scan_security
 
-
 sample_code = '''
 import subprocess
 import yaml

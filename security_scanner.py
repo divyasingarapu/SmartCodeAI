@@ -9,7 +9,6 @@ type, severity, line, message, suggestion.
 import ast
 import re
 
-
 SECRET_ASSIGNMENT_PATTERN = re.compile(
     r"""(?ix)
     \b(password|passwd|secret|api[_-]?key|access[_-]?token)
@@ -75,7 +74,7 @@ def _contains_dynamic_sql(node):
 
     if isinstance(node, ast.Call):
         name = _call_name(node.func)
-        if name.endswith(".format") or name.endswith(".format_map"):
+        if name.endswith((".format", ".format_map")):
             return True
 
     for child in ast.iter_child_nodes(node):

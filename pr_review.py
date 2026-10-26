@@ -1,5 +1,9 @@
 
+"""Review changed Python files in a pull request."""
+
 import os
+import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -11,30 +15,53 @@ from changed_line_filter import (
 )
 from security_scanner import scan_security
 
-
 ROOT = Path.cwd()
 OUTPUT_FILE = ROOT / "pr-review-report.md"
+GIT_EXECUTABLE = shutil.which("git")
+
+if GIT_EXECUTABLE is None:
+    raise RuntimeError("Git executable was not found on PATH.")
+
+BRANCH_PATTERN = re.compile(r"^[A-Za-z0-9._/-]{1,200}$")
 
 
 def get_changed_python_diff():
     """Return the unified diff for changed Python files."""
-    base_ref = os.environ.get("GITHUB_BASE_REF")
+    base_ref = os.environ.get("GITHUB_BASE_REF", "")
+
+    if base_ref and (
+        not BRANCH_PATTERN.fullmatch(base_ref)
+        or base_ref.startswith("-")
+        or ".." in base_ref
+        or base_ref.endswith("/")
+        or "//" in base_ref
+    ):
+        raise ValueError("Invalid GitHub base branch name.")
 
     if base_ref:
+        # nosec B603
         subprocess.run(
-            ["git", "fetch", "origin", base_ref, "--depth=1"],
+            [
+                GIT_EXECUTABLE,
+                "fetch",
+                "origin",
+                base_ref,
+                "--depth=1",
+            ],
             check=True,
             capture_output=True,
             text=True,
+            timeout=60,
         )
         diff_range = f"origin/{base_ref}...HEAD"
     else:
         # Local fallback for a smoke test.
         diff_range = "HEAD~1...HEAD"
 
+    # nosec B603
     result = subprocess.run(
         [
-            "git",
+            GIT_EXECUTABLE,
             "diff",
             "--no-ext-diff",
             "--unified=0",
@@ -46,6 +73,7 @@ def get_changed_python_diff():
         check=True,
         capture_output=True,
         text=True,
+        timeout=60,
     )
 
     return result.stdout
@@ -56,11 +84,24 @@ def get_changed_python_files(diff_text):
     files = []
 
     for line in diff_text.splitlines():
-        if line.startswith("+++ b/"):
-            path = Path(line[6:])
+        if not line.startswith("+++ b/"):
+            continue
 
-            if path.suffix == ".py" and path.is_file():
-                files.append(path)
+        relative_path = line[6:]
+
+        # Ignore paths that could escape the repository root.
+        path_parts = relative_path.split("/")
+        if (
+            not relative_path
+            or "\\" in relative_path
+            or any(part in ("", ".", "..") for part in path_parts)
+        ):
+            continue
+
+        path = ROOT.joinpath(*path_parts)
+
+        if path.suffix == ".py" and path.is_file():
+            files.append(path)
 
     # Preserve order and remove duplicate paths.
     return list(dict.fromkeys(files))
@@ -103,9 +144,18 @@ def format_finding(issue):
 def main():
     try:
         diff_text = get_changed_python_diff()
-    except subprocess.CalledProcessError as error:
+    except (
+        subprocess.CalledProcessError,
+        ValueError,
+        OSError,
+    ) as error:
         print("Could not identify changed Python files.")
-        print(error.stderr or str(error))
+
+        if isinstance(error, subprocess.CalledProcessError):
+            print(error.stderr or str(error))
+        else:
+            print(str(error))
+
         return 1
 
     changed_lines_by_file = parse_changed_lines(diff_text)
@@ -132,8 +182,9 @@ def main():
 
     for path in changed_files:
         findings = review_file(path)
+        relative_path = path.relative_to(ROOT).as_posix()
         changed_lines = changed_lines_by_file.get(
-            path.as_posix(),
+            relative_path,
             set(),
         )
 
@@ -155,7 +206,7 @@ def main():
 
         report.extend(
             [
-                f"## `{path.as_posix()}`",
+                f"## `{relative_path}`",
                 "",
                 f"Changed lines: {len(changed_lines)}",
                 "",

@@ -157,7 +157,17 @@ def run_static_tool(command, code, issue_type, tool_name):
             delete=False,
         ) as temp_file:
             temp_file.write(code)
-            temp_path = temp_file.name
+        temp_path = temp_file.name
+        if command not in {"ruff", "bandit"}:
+            return [
+                make_issue(
+                    "Analyzer Tool",
+                    "info",
+                    None,
+                    f"Unsupported analysis tool: {tool_name}.",
+                    "Choose a supported analysis tool.",
+                )
+            ]
 
         command_args = [
             sys.executable,
@@ -169,18 +179,9 @@ def run_static_tool(command, code, issue_type, tool_name):
             command_args.extend(
                 ["check", "--output-format", "json"]
             )
-        elif command == "bandit":
-            command_args.extend(["-f", "json"])
         else:
-            return [
-                make_issue(
-                    "Analyzer Tool",
-                    "info",
-                    None,
-                    f"Unsupported analysis tool: {tool_name}.",
-                    "Choose a supported analysis tool.",
-                )
-            ]
+            command_args.extend(["-f", "json"])
+
 
         command_args.append(temp_path)
 

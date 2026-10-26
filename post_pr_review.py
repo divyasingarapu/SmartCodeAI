@@ -24,8 +24,10 @@ def github_request(url, token, method="GET", payload=None):
     if (
         parsed_url.scheme != "https"
         or parsed_url.hostname != "api.github.com"
-    ):
-        raise ValueError(
+        or parsed_url.port not in (None, 443)
+        or parsed_url.username is not None
+        or parsed_url.password is not None
+    ):  raise ValueError(
             "Only HTTPS requests to api.github.com are allowed."
         )
 
@@ -41,7 +43,7 @@ def github_request(url, token, method="GET", payload=None):
         method=method,
     )
 
-    with urllib.request.urlopen(request, timeout=20) as response:
+    with urllib.request.urlopen(request, timeout=20) as response:  # nosec B310
         response_data = response.read().decode("utf-8")
         if response_data:
             return json.loads(response_data)

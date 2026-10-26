@@ -19,8 +19,24 @@ class GitHubServiceError(Exception):
     """Raised when a GitHub repository cannot be inspected."""
 
 
+
 def _get_json(url):
-    """Fetch JSON from the GitHub API."""
+    """Fetch JSON from the trusted GitHub API over HTTPS."""
+
+    from urllib.parse import urlsplit
+
+    parsed_url = urlsplit(url)
+
+    if (
+        parsed_url.scheme != "https"
+        or parsed_url.hostname != "api.github.com"
+        or parsed_url.port not in (None, 443)
+        or parsed_url.username is not None
+        or parsed_url.password is not None
+    ):
+        raise GitHubServiceError(
+            "Only HTTPS requests to api.github.com are allowed."
+        )
 
     request = Request(
         url,
@@ -29,12 +45,12 @@ def _get_json(url):
             "User-Agent": "SmartCodeAI-Local-Reviewer",
             "X-GitHub-Api-Version": "2022-11-28",
         },
-    )
-
+)
     try:
-        with urlopen(request, timeout=10) as response:
+        with urlopen(request, timeout=10) as response:  # nosec B310
             response_data = response.read()
             return json.loads(response_data.decode("utf-8"))
+
 
     except HTTPError as error:
         if error.code == 404:
@@ -61,7 +77,6 @@ def _get_json(url):
         raise GitHubServiceError(
             "GitHub returned an invalid JSON response."
         ) from error
-
 
 def _validate_repository(owner, repo):
     """Validate the repository owner and name."""
